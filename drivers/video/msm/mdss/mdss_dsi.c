@@ -25,6 +25,7 @@
 #include <linux/clk.h>
 #include <linux/uaccess.h>
 #include <linux/pm_qos.h>
+#include <linux/state_notifier.h>
 
 #include "mdss.h"
 #include "mdss_panel.h"
@@ -33,6 +34,7 @@
 #include "mdss_dba_utils.h"
 #include "mdss_dsi_phy.h"
 #include "mdss_livedisplay.h"
+#include <linux/lcd_notify.h>
 
 #define XO_CLK_RATE	19200000
 
@@ -2211,6 +2213,8 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 							pdata);
 		break;
 	case MDSS_EVENT_UNBLANK:
+		lcd_notifier_call_chain(LCD_EVENT_ON_START, NULL);
+		state_resume();
 		if (ctrl_pdata->on_cmds.link_state == DSI_LP_MODE)
 			rc = mdss_dsi_unblank(pdata);
 		break;
@@ -2222,8 +2226,11 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		if (ctrl_pdata->on_cmds.link_state == DSI_HS_MODE)
 			rc = mdss_dsi_unblank(pdata);
 		pdata->panel_info.esd_rdy = true;
+		lcd_notifier_call_chain(LCD_EVENT_ON_END, NULL);
+		state_resume();
 		break;
 	case MDSS_EVENT_BLANK:
+		lcd_notifier_call_chain(LCD_EVENT_OFF_START, NULL);
 		power_state = (int) (unsigned long) arg;
 		if (ctrl_pdata->off_cmds.link_state == DSI_HS_MODE)
 			rc = mdss_dsi_blank(pdata, power_state);
@@ -2234,6 +2241,8 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		if (ctrl_pdata->off_cmds.link_state == DSI_LP_MODE)
 			rc = mdss_dsi_blank(pdata, power_state);
 		rc = mdss_dsi_off(pdata, power_state);
+		lcd_notifier_call_chain(LCD_EVENT_OFF_END, NULL);
+		state_suspend();
 		break;
 	case MDSS_EVENT_CONT_SPLASH_FINISH:
 		if (ctrl_pdata->off_cmds.link_state == DSI_LP_MODE)

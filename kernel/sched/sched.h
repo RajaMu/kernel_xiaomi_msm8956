@@ -669,6 +669,7 @@ struct rq {
 	int mostly_idle_nr_run;
 	int mostly_idle_freq;
 	unsigned long hmp_flags;
+	unsigned int cur_freq, max_freq, min_freq, max_possible_freq;
 
 	u64 cur_irqload;
 	u64 avg_irqload;
@@ -1974,3 +1975,16 @@ static inline u64 irq_time_read(int cpu)
 }
 #endif /* CONFIG_64BIT */
 #endif /* CONFIG_IRQ_TIME_ACCOUNTING */
+
+static inline void account_reset_rq(struct rq *rq)
+{
+#ifdef CONFIG_IRQ_TIME_ACCOUNTING
+	rq->prev_irq_time = 0;
+#endif
+#ifdef CONFIG_PARAVIRT
+	rq->prev_steal_time = 0;
+#endif
+#ifdef CONFIG_PARAVIRT_TIME_ACCOUNTING
+	rq->prev_steal_time_rq = 0;
+#endif
+}

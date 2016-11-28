@@ -47,6 +47,7 @@ core-y		+= arch/arm64/kernel/ arch/arm64/mm/
 core-$(CONFIG_XEN)		+= arch/arm64/xen/
 core-$(CONFIG_KVM) += arch/arm64/kvm/
 core-$(CONFIG_CRYPTO) += arch/arm64/crypto/
+core-$(CONFIG_THUNDERPLUG_CONTROL) += arch/arm64/hotplug/
 libs-y		:= arch/arm64/lib/ $(libs-y)
 libs-y		+= $(LIBGCC)
 
@@ -61,6 +62,7 @@ KBUILD_DTBS	:= dtbs
 
 all:	$(KBUILD_IMAGE) $(KBUILD_DTBS)
 
+boot32 := arch/arm/boot
 boot := arch/arm64/boot
 
 Image Image.gz: vmlinux
@@ -70,11 +72,11 @@ zinstall install: vmlinux
 	$(Q)$(MAKE) $(build)=$(boot) $@
 
 %.dtb: scripts
-	$(Q)$(MAKE) $(build)=$(boot)/dts $(boot)/dts/$@
+	$(Q)$(MAKE) $(build)=$(boot32)/dts $(boot32)/dts/$@
 
 dtbs: scripts
-	$(Q)$(MAKE) $(build)=$(boot)/dts dtbs
-	$(Q)$(MAKE) $(build)=$(boot)/dts/qcom dtbs
+	$(Q)$(MAKE) $(build)=$(boot32)/dts dtbs
+	$(Q)$(MAKE) $(build)=$(boot32)/dts/qcom dtbs
 
 PHONY += vdso_install
 vdso_install:

@@ -237,7 +237,7 @@ static int ksm_nr_node_ids = 1;
 #endif
 
 #define KSM_RUN_STOP	0
-#define KSM_RUN_MERGE	1
+#define KSM_RUN_MERGE	0
 #define KSM_RUN_UNMERGE	2
 #define KSM_RUN_OFFLINE	4
 static unsigned long ksm_run = KSM_RUN_MERGE;
@@ -661,7 +661,9 @@ static void remove_rmap_item_from_tree(struct rmap_item *rmap_item)
 		 * than left over from before.
 		 */
 		age = (unsigned char)(ksm_scan.seqnr - rmap_item->address);
+#ifndef CONFIG_KSM_CHECK_PAGE
 		BUG_ON(age > 1);
+#endif
 		if (!age)
 			rb_erase(&rmap_item->node,
 				 root_unstable_tree + NUMA(rmap_item->nid));
@@ -1705,6 +1707,31 @@ next_mm:
 	return NULL;
 }
 
+static inline int is_page_scanned(struct page *page)
+{
+#ifdef CONFIG_KSM_CHECK_PAGE
+	/* page is already marked as ksm, so this will be simple merge */
+	if (PageKsm(page))
+		return 0;
+
+	if (ksm_scan.seqnr & 0x1) {
+		/* odd cycle */
+		/* clear even cycle bit */
+		ClearPageKsmScan0(page);
+		/* get old value and mark it scanned */
+		return TestSetPageKsmScan1(page);
+	} else {
+		/* even cycle */
+		/* clear odd cycle bit */
+		ClearPageKsmScan1(page);
+		/* get old value and mark it scanned */
+		return TestSetPageKsmScan0(page);
+	}
+#else
+	return 0;
+#endif
+}
+
 /**
  * ksm_do_scan  - the ksm scanner main worker function.
  * @scan_npages - number of pages we want to scan before we return.
@@ -1719,7 +1746,8 @@ static void ksm_do_scan(unsigned int scan_npages)
 		rmap_item = scan_get_next_rmap_item(&page);
 		if (!rmap_item)
 			return;
-		cmp_and_merge_page(page, rmap_item);
+		if (!is_page_scanned(page))
+			cmp_and_merge_page(page, rmap_item);
 		put_page(page);
 	}
 }

@@ -746,6 +746,8 @@ struct user_struct {
 	unsigned long mq_bytes;	/* How many bytes can be allocated to mqueue? */
 #endif
 	unsigned long locked_shm; /* How many pages of mlocked shm ? */
+	unsigned long unix_inflight;	/* How many files in flight in unix sockets */
+	atomic_long_t pipe_bufs;  /* how many pages are allocated in pipe buffers */
 
 #ifdef CONFIG_KEYS
 	struct key *uid_keyring;	/* UID specific keyring */
@@ -1804,6 +1806,7 @@ extern int task_free_unregister(struct notifier_block *n);
 #ifdef CONFIG_SCHED_FREQ_INPUT
 extern int sched_set_window(u64 window_start, unsigned int window_size);
 extern unsigned long sched_get_busy(int cpu);
+static inline void sched_get_cpus_busy(unsigned long *busy, const struct cpumask *query_cpus) {};
 extern void sched_set_io_is_busy(int val);
 #else
 static inline int sched_set_window(u64 window_start, unsigned int window_size)

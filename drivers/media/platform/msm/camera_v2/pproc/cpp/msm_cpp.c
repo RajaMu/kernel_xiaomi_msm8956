@@ -2184,21 +2184,19 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 		return -EINVAL;
 	}
 
-	if (!new_frame->partial_frame_indicator) {
-		if (cpp_frame_msg[new_frame->msg_len - 1] !=
-			MSM_CPP_MSG_ID_TRAILER) {
-			pr_err("Invalid frame message\n");
-			return -EINVAL;
-		}
+	if (cpp_frame_msg[new_frame->msg_len - 1] !=
+		MSM_CPP_MSG_ID_TRAILER) {
+		pr_err("Invalid frame message\n");
+		return -EINVAL;
+	}
 
-		if ((stripe_base + new_frame->num_strips * stripe_size + 1) !=
-			new_frame->msg_len) {
-			pr_err("Invalid frame message,len=%d,expected=%d\n",
-				new_frame->msg_len,
-				(stripe_base +
-				new_frame->num_strips * stripe_size + 1));
-			return -EINVAL;
-		}
+	if ((stripe_base + new_frame->num_strips * stripe_size + 1) !=
+		new_frame->msg_len) {
+		pr_err("Invalid frame message,len=%d,expected=%d\n",
+			new_frame->msg_len,
+			(stripe_base +
+			new_frame->num_strips * stripe_size + 1));
+		return -EINVAL;
 	}
 
 	if (cpp_dev->iommu_state != CPP_IOMMU_STATE_ATTACHED) {
@@ -2495,14 +2493,14 @@ static int msm_cpp_validate_input(unsigned int cmd, void *arg,
 		break;
 	default:
 		if (ioctl_ptr == NULL) {
-			pr_err("Wrong ioctl_ptr for cmd %u\n", cmd);
+			pr_err("Wrong ioctl_ptr %p\n", ioctl_ptr);
 			return -EINVAL;
 		}
 
 		*ioctl_ptr = arg;
 		if ((*ioctl_ptr == NULL) ||
-			(*ioctl_ptr)->ioctl_ptr == NULL) {
-			pr_err("Error invalid ioctl argument cmd %u\n", cmd);
+			((*ioctl_ptr)->ioctl_ptr == NULL)) {
+			pr_err("Wrong arg %p\n", arg);
 			return -EINVAL;
 		}
 		break;
@@ -2540,10 +2538,6 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 	cpp_dev = v4l2_get_subdevdata(sd);
 	if (cpp_dev == NULL) {
 		pr_err("cpp_dev is null\n");
-		return -EINVAL;
-	}
-	if (_IOC_DIR(cmd) == _IOC_NONE) {
-		pr_err("Invalid ioctl/subdev cmd %u", cmd);
 		return -EINVAL;
 	}
 	rc = msm_cpp_validate_input(cmd, arg, &ioctl_ptr);

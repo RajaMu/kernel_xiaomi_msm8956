@@ -120,11 +120,11 @@
 			};
 		};
 
-		hall_int_pin{
+		hall_sensor_irq {
 			qcom,pins = <&gp 107>;
 			qcom,pin-func = <0>;
 			qcom,num-grp-pins = <1>;
-			label = "hall_int_pin";
+			label = "hall_sensor_irq";
 			hall_int_active: active {
 				drive-strength = <6>;
 				bias-pull-up;
@@ -910,6 +910,30 @@
 			qdsd_data0_spmi: data0_spmi {
 				bias-pull-down; /* pull down */
 				drive-strength = <0>; /* 0 MA */
+			};
+		};
+
+		uicc-active {
+			qcom,pins = <&gp 49>, <&gp 50>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <1>;
+			label = "uicc-active-pins";
+
+			uicc_active: active {
+				drive-strength = <8>;
+				bias-pull-down;
+			};
+		};
+
+		uicc-sleep {
+			qcom,pins = <&gp 49>, <&gp 50>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <0>;
+			label = "uicc-sleep-pins";
+
+			uicc_sleep: sleep {
+				drive-strength = <2>;
+				bias-pull-down;
 			};
 		};
 

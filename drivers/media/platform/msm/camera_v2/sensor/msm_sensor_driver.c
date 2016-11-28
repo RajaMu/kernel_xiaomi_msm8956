@@ -23,10 +23,6 @@
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
-
-extern int lct_hardwareid;
-
-
 #define SENSOR_MAX_MOUNTANGLE (360)
 
 static struct v4l2_file_operations msm_sensor_v4l2_subdev_fops;
@@ -515,18 +511,6 @@ static int32_t msm_sensor_get_power_down_settings(void *setting,
 			pd[i].seq_type, pd[i].seq_val,
 			pd[i].config_val, pd[i].delay);
 	}
-
-	CDBG(" %s slave_info->camera_id = %d ,lct_hardwareid=%d\n", __func__, slave_info->camera_id, lct_hardwareid);
-	if ((slave_info->camera_id == CAMERA_0) && (lct_hardwareid == 0)) {
-		for (i = 0; i < power_info->power_down_setting_size; i++) {
-			if (power_info->power_down_setting[i].seq_val == SENSOR_GPIO_VANA) {
-				power_info->power_down_setting[i].seq_type = SENSOR_VREG;
-				power_info->power_down_setting[i].seq_val = CAM_VANA;
-
-			}
-		}
-		printk("%s it is not p3 or later hardware\n", __func__);
-	}
 	return rc;
 }
 
@@ -587,19 +571,6 @@ static int32_t msm_sensor_get_power_up_settings(void *setting,
 	/* Fill power up setting and power up setting size */
 	power_info->power_setting = pu;
 	power_info->power_setting_size = size;
-
-	CDBG(" %s slave_info->camera_id = %d ,lct_hardwareid=%d\n", __func__, slave_info->camera_id, lct_hardwareid);
-	if ((slave_info->camera_id == CAMERA_0) && (lct_hardwareid == 0)) {
-		for (i = 0; i < power_info->power_setting_size; i++) {
-			if (power_info->power_setting[i].seq_val == SENSOR_GPIO_VANA) {
-				power_info->power_setting[i].seq_type = SENSOR_VREG;
-				power_info->power_setting[i].seq_val = CAM_VANA;
-
-			}
-		}
-		printk("%s it is not p3 or later hardware\n", __func__);
-	}
-
 
 	return rc;
 }
@@ -679,6 +650,11 @@ static int32_t msm_sensor_driver_is_special_support(
 	return rc;
 }
 
+#ifdef CONFIG_MACH_XIAOMI_HYDROGEN
+extern int hydrogen_get_back_sensor_name(char *);
+extern int hydrogen_get_front_sensor_name(char *);
+#endif
+
 /* static function definition */
 int32_t msm_sensor_driver_probe(void *setting,
 	struct msm_sensor_info_t *probed_info, char *entity_name)
@@ -691,6 +667,10 @@ int32_t msm_sensor_driver_probe(void *setting,
 
 	unsigned long                        mount_pos = 0;
 	uint32_t                             is_yuv;
+#ifdef CONFIG_MACH_XIAOMI_HYDROGEN
+	char hydrogen_back_sensor_name[32];
+	char hydrogen_front_sensor_name[32];
+#endif
 
 	/* Validate input parameters */
 	if (!setting) {
@@ -773,6 +753,30 @@ int32_t msm_sensor_driver_probe(void *setting,
 			goto free_slave_info;
 		}
 	}
+
+#ifdef CONFIG_MACH_XIAOMI_HYDROGEN
+	if (strncmp(slave_info->eeprom_name, "dw9763", strlen("dw9763")) == 0) {
+		hydrogen_get_back_sensor_name(hydrogen_back_sensor_name);
+		CDBG("slave_info sensor_name = %s, back_sensor_name - %s\n",
+			slave_info->sensor_name, hydrogen_back_sensor_name);
+		if (strcmp(slave_info->sensor_name, hydrogen_back_sensor_name) != 0) {
+			pr_err("%s %d: hydrogen back sensor name not match!\n", __func__, __LINE__);
+			rc = -EFAULT;
+			goto free_slave_info;
+		}
+	}
+
+	if (strncmp(slave_info->eeprom_name, "s5k5e8", strlen("s5k5e8")) == 0) {
+		hydrogen_get_front_sensor_name(hydrogen_front_sensor_name);
+		CDBG("slave_info sensor_name = %s, front_sensor_name - %s\n",
+			slave_info->sensor_name, hydrogen_front_sensor_name);
+		if (strcmp(slave_info->sensor_name, hydrogen_front_sensor_name) != 0) {
+			pr_err("%s %d: hydrogen front sensor name not match!\n", __func__, __LINE__);
+			rc = -EFAULT;
+			goto free_slave_info;
+		}
+	}
+#endif
 
 	/* Print slave info */
 	CDBG("camera id %d Slave addr 0x%X addr_type %d\n",

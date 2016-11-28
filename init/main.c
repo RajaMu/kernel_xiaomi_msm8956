@@ -103,6 +103,10 @@ static inline void mark_rodata_ro(void) { }
 extern void tc_init(void);
 #endif
 
+#ifdef CONFIG_MACH_XIAOMI_KENZO
+int kenzo_boardid = 2;
+#endif
+
 /*
  * Debug helper: via this flag we know that we are in 'early bootup code'
  * where only the boot processor is running with IRQ disabled.  This means
@@ -472,13 +476,14 @@ static void __init mm_init(void)
 	pgtable_cache_init();
 	vmalloc_init();
 }
-int lct_hardwareid = 2;
 
 asmlinkage void __init start_kernel(void)
 {
 	char * command_line;
 	extern const struct kernel_param __start___param[], __stop___param[];
-	char *p = NULL;
+#ifdef CONFIG_MACH_XIAOMI_KENZO
+	char * board_id_ptr;
+#endif
 
 	/*
 	 * Need to run as early as possible, to initialize the
@@ -516,20 +521,12 @@ asmlinkage void __init start_kernel(void)
 	page_alloc_init();
 
 	pr_notice("Kernel command line: %s\n", boot_command_line);
-	p = strstr(boot_command_line, "androidboot.boardID=0");
-	if (p) {
-		lct_hardwareid = 0;
-	}
-	p = NULL;
-	p = strstr(boot_command_line, "androidboot.boardID=2");
-	if (p) {
-		lct_hardwareid = 2;
-	}
-	p = NULL;
-	p = strstr(boot_command_line, "androidboot.boardID=3");
-	if (p) {
-		lct_hardwareid = 3;
-	}
+
+#ifdef CONFIG_MACH_XIAOMI_KENZO
+	board_id_ptr = strstr(boot_command_line, "androidboot.boardID=");
+	if (board_id_ptr)
+		kenzo_boardid = simple_strtoul(&board_id_ptr[strlen("androidboot.boardID=")], NULL, 10);
+#endif
 
 	parse_early_param();
 	parse_args("Booting kernel", static_command_line, __start___param,

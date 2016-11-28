@@ -22,7 +22,7 @@
 	interrupt-parent = <&intc>;
 
 	chosen {
-		bootargs = "sched_enable_hmp=1";
+		bootargs = "boot_cpus=0,1,2,3,4,5 sched_enable_hmp=1 sched_enable_power_aware=1";
 	};
 
 	aliases {
@@ -89,7 +89,7 @@
 
 		secure_mem: secure_region@0 {
 			linux,reserve-contiguous-region;
-			reg = <0x0 0x0 0x0 0x8100000>;
+			reg = <0x0 0x0 0x0 0x7A00000>;
 			label = "secure_mem";
 		};
 
@@ -316,7 +316,8 @@
 			< 1190400000 5>,
 			< 1305600000 6>,
 			< 1382400000 7>,
-			< 1401600000 8>;
+			< 1401600000 8>,
+			< 1440000000 9>;
 		qcom,speed0-bin-v0-c1 =
 			<          0 0>,
 			<  400000000 1>,
@@ -324,7 +325,8 @@
 			< 1190400000 3>,
 			< 1382400000 4>,
 			< 1612800000 5>,
-			< 1747200000 6>;
+			< 1747200000 6>,
+			< 1804800000 7>;
 		qcom,speed0-bin-v0-cci =
 			<          0 0>,
 			<  307200000 1>,
@@ -832,7 +834,6 @@
 		qcom,bcl-enable;
 		qcom,bcl-framework-interface;
 		qcom,bcl-freq-control-list = <&CPU4 &CPU5 &CPU6 &CPU7>;
-		qcom,bcl-hotplug-list = <&CPU4 &CPU5 &CPU6 &CPU7>;
 		qcom,bcl-soc-hotplug-list = <&CPU4 &CPU5 &CPU6 &CPU7>;
 		qcom,ibat-monitor {
 			qcom,high-threshold-uamp = <4200000>;
@@ -1213,6 +1214,30 @@
 		qcom,pm-qos-latency = <2 1001 12701>;
 	};
 
+	fsusb: qcom,ehci-host@79c0000 {
+		compatible = "qcom,ehci-host";
+		reg = <0x79c0000 0x400>;
+		interrupts = <0 132 0>;
+		status = "disabled";
+
+		clocks = <&clock_gcc clk_gcc_usb_fs_ahb_clk>,
+			 <&clock_gcc clk_gcc_usb_fs_system_clk>,
+			 <&clock_gcc clk_gcc_usb_fs_ic_clk>;
+			clock-names = "iface_clk", "core_clk", "alt_core_clk";
+
+		pinctrl-names = "uicc_active", "uicc_sleep";
+		pinctrl-0 = <&uicc_active>;
+		pinctrl-1 = <&uicc_sleep>;
+		HSUSB_3p3-supply = <&pm8950_l14>;
+
+		qcom,msm-bus,name = "uicc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<93 512 0 0>,
+				<93 512 12000 192000>;
+	};
+
 	slim_msm: slim@c140000{
 		cell-index = <1>;
 		compatible = "qcom,slim-ngd";
@@ -1350,7 +1375,6 @@
 			qcom,smd-irq-bitmask = <0x1000>;
 			interrupts = <0 25 1>;
 			label = "modem";
-			qcom,not-loadable;
 		};
 
 		qcom,smsm-modem {
@@ -1549,7 +1573,6 @@
 		qcom,xprt-linkid = <1>;
 		qcom,xprt-version = <1>;
 		qcom,fragmented-data;
-		qcom,disable-pil-loading;
 	};
 
 	qcom,ipc_router_q6_xprt {
@@ -2245,11 +2268,6 @@
 				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
-		/*qcom,max-aux-codec = <2>;
-		qcom,aux-codec = "wsa881x.20170211", "wsa881x.20170212",
-				 "wsa881x.21170213", "wsa881x.21170214";
-		qcom,aux-codec-prefix = "SpkrLeft", "SpkrRight",
-					"SpkrLeft", "SpkrRight";*/
 	};
 
 	wcd9xxx_intc: wcd9xxx-irq {

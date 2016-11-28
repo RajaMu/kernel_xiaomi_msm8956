@@ -8,6 +8,13 @@ menuconfig POWER_SUPPLY
 
 if POWER_SUPPLY
 
+config FORCE_FAST_CHARGE
+	bool "Increase input current limit to 900mA when charging via USB"
+	default y
+	help
+	  A simple sysfs interface to increase input current limit to
+	  900mA when charging via USB.
+
 config POWER_SUPPLY_DEBUG
 	bool "Power supply debug"
 	help
@@ -464,6 +471,21 @@ config QPNP_SMBCHARGER
 	  supports USB detection and battery charging up to 3A.
 	  The driver also offers relevant information to userspace via the
 	  power supply framework.
+
+config TEMP_CHARGE_DISABLE
+	bool "Enable smb1360 disable charging when temp is too hot or too cold"
+	depends on QPNP_SMBCHARGER
+	help
+	  Say Y to enable SMB1360 disable charging,this feature is designed for
+	  protect battery.
+
+config BOARDTEMP_WORK
+	bool "Enable board ntc sensor monitor work."
+	depends on QPNP_SMBCHARGER
+	  help
+	  Say Y to enable SMB1360 board ntc(temp sensor) work if board ntc is
+	  placed. If there is not ntc on board,this feature must be close
+	  becase this will cause chaos.
 
 config QPNP_FG
 	tristate "QPNP fuel gauge driver"

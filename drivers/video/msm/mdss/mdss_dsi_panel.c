@@ -21,18 +21,20 @@
 #include <linux/leds.h>
 #include <linux/qpnp/pwm.h>
 #include <linux/err.h>
-
+#include <linux/display_state.h>
 #include "mdss_dsi.h"
 #include "mdss_dba_utils.h"
 #include "mdss_livedisplay.h"
 
 #define DT_CMD_HDR 6
-#define WRITE_REGISTER
 #define MIN_REFRESH_RATE 48
 #define DEFAULT_MDP_TRANSFER_TIME 14000
+#ifdef CONFIG_MACH_XIAOMI_KENZO
+#define WRITE_REGISTER
 #define LCM_SUPPORT_READ_VERSION
 #ifdef LCM_SUPPORT_READ_VERSION
 char g_lcm_id[128];
+#endif
 #endif
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
@@ -46,6 +48,13 @@ static char rc_range_max_qp[] = {4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 11, 12,
 	13, 13, 15};
 static char rc_range_bpg_offset[] = {2, 0, 0, -2, -4, -6, -8, -8, -8, -10, -10,
 	-12, -12, -12, -12};
+
+bool display_on = true;
+
+bool is_display_on()
+{
+	return display_on;
+}
 
 void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 {
@@ -217,6 +226,7 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 }
 
+#ifdef CONFIG_MACH_XIAOMI_KENZO
 static char lcd_reg1[2] = {0x0, 0x0};	/* DTYPE_DCS_WRITE1 */
 static struct dsi_cmd_desc lcd_write_register = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(lcd_reg1)},
@@ -241,6 +251,7 @@ static void mdss_dsi_write_reg_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int cmd, in
 
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 }
+#endif
 
 static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -642,13 +653,19 @@ static void mdss_dsi_panel_switch_mode(struct mdss_panel_data *pdata,
 
 	return;
 }
+
+#ifdef CONFIG_MACH_XIAOMI_KENZO
 struct mdss_dsi_ctrl_pdata *w_reg;
+#endif
+
 static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 							u32 bl_level)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
+#ifdef CONFIG_MACH_XIAOMI_KENZO
 	static u32 old_bl_level;
+#endif
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
@@ -656,8 +673,10 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
-
+#ifdef CONFIG_MACH_XIAOMI_KENZO
 	w_reg = ctrl_pdata;
+#endif
+
 	/*
 	 * Some backlight controllers specify a minimum duty cycle
 	 * for the backlight brightness. If the brightness is less
@@ -703,7 +722,10 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 			__func__);
 		break;
 	}
+#ifdef CONFIG_MACH_XIAOMI_KENZO
 	old_bl_level = bl_level;
+#endif
+
 }
 
 static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
@@ -717,6 +739,8 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
+
+	display_on = true;
 
 	pinfo = &pdata->panel_info;
 	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
@@ -820,6 +844,7 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 		mdss_dba_utils_hdcp_enable(pinfo->dba_data, false);
 	}
 
+	display_on = false;
 end:
 	pr_debug("%s:-\n", __func__);
 	return 0;
@@ -1660,8 +1685,10 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 				"qcom,dcs-cmd-by-left");
 	}
 
+#ifdef CONFIG_MACH_XIAOMI_KENZO
 	pinfo->sharp_panel_module = of_property_read_bool(np,
 		"qcom,sharp-panel");
+#endif
 
 	pinfo->ulps_feature_enabled = of_property_read_bool(np,
 		"qcom,ulps-enabled");
@@ -2204,6 +2231,8 @@ static void mdss_dsi_set_prim_panel(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		}
 	}
 }
+
+#ifdef CONFIG_MACH_XIAOMI_KENZO
 #ifdef WRITE_REGISTER
 
 static ssize_t r_lcd_write_register(struct device *dev,
@@ -2291,6 +2320,8 @@ static int msm_lcd_name_create_sysfs(void)
 	return 0 ;
 }
 #endif
+#endif
+
 int mdss_dsi_panel_init(struct device_node *node,
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -2315,13 +2346,17 @@ int mdss_dsi_panel_init(struct device_node *node,
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 		strlcpy(&pinfo->panel_name[0], panel_name, MDSS_MAX_PANEL_LEN);
 	}
-	#ifdef LCM_SUPPORT_READ_VERSION
+
+#ifdef CONFIG_MACH_XIAOMI_KENZO
+#ifdef LCM_SUPPORT_READ_VERSION
 		rc = mdss_panel_parse_panel_name(node);
 		if (rc) {
 			pr_err("fail to parse panel label\n");
 			return rc;
 		}
 #endif
+#endif
+
 	rc = mdss_panel_parse_dt(node, ctrl_pdata);
 	if (rc) {
 		pr_err("%s:%d panel dt parse failed\n", __func__, __LINE__);
@@ -2339,11 +2374,13 @@ int mdss_dsi_panel_init(struct device_node *node,
 	ctrl_pdata->low_power_config = mdss_dsi_panel_low_power_config;
 	ctrl_pdata->panel_data.set_backlight = mdss_dsi_panel_bl_ctrl;
 	ctrl_pdata->switch_mode = mdss_dsi_panel_switch_mode;
+#ifdef CONFIG_MACH_XIAOMI_KENZO
 #ifdef LCM_SUPPORT_READ_VERSION
 	msm_lcd_name_create_sysfs();
 #endif
 #ifdef WRITE_REGISTER
 	msm_lcd_write_reg_create_sysfs();
+#endif
 #endif
 	return 0;
 }

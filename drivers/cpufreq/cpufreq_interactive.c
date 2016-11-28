@@ -31,6 +31,7 @@
 #include <linux/kthread.h>
 #include <linux/slab.h>
 #include <linux/kernel_stat.h>
+#include <linux/display_state.h>
 #include <asm/cputime.h>
 
 #define CREATE_TRACE_POINTS
@@ -80,7 +81,8 @@ static struct mutex sched_lock;
 #define DEFAULT_TARGET_LOAD 90
 static unsigned int default_target_loads[] = {DEFAULT_TARGET_LOAD};
 
-#define DEFAULT_TIMER_RATE (20 * USEC_PER_MSEC)
+#define DEFAULT_TIMER_RATE (20000)
+#define SCREEN_OFF_TIMER_RATE ((unsigned long)20000)
 #define DEFAULT_ABOVE_HISPEED_DELAY DEFAULT_TIMER_RATE
 static unsigned int default_above_hispeed_delay[] = {
 	DEFAULT_ABOVE_HISPEED_DELAY };
@@ -100,12 +102,13 @@ struct cpufreq_interactive_tunables {
 	 * The minimum amount of time to spend at a frequency before we can ramp
 	 * down.
 	 */
-#define DEFAULT_MIN_SAMPLE_TIME (80 * USEC_PER_MSEC)
+#define DEFAULT_MIN_SAMPLE_TIME (40000)
 	unsigned long min_sample_time;
 	/*
 	 * The sample rate of the timer used to increase frequency
 	 */
 	unsigned long timer_rate;
+	unsigned long prev_timer_rate;
 	/*
 	 * Wait this long before raising speed above hispeed, by default a
 	 * single timer interval.
@@ -124,7 +127,7 @@ struct cpufreq_interactive_tunables {
 	 * Max additional time to wait in idle, beyond timer_rate, at speeds
 	 * above minimum before wakeup to reduce speed, or -1 if unnecessary.
 	 */
-#define DEFAULT_TIMER_SLACK (4 * DEFAULT_TIMER_RATE)
+#define DEFAULT_TIMER_SLACK (80000)
 	int timer_slack_val;
 	bool io_is_busy;
 
@@ -408,6 +411,7 @@ static void __cpufreq_interactive_timer(unsigned long data, bool is_notif)
 	unsigned int index;
 	unsigned long flags;
 	struct cpufreq_govinfo int_info;
+	bool display_on = is_display_on();
 	u64 max_fvtime;
 
 	if (!down_read_trylock(&pcpu->enable_sem))
@@ -418,6 +422,18 @@ static void __cpufreq_interactive_timer(unsigned long data, bool is_notif)
 	spin_lock_irqsave(&pcpu->load_lock, flags);
 	pcpu->last_evaluated_jiffy = get_jiffies_64();
 	now = update_load(data);
+
+	if (display_on
+		&& tunables->timer_rate != tunables->prev_timer_rate)
+		tunables->timer_rate = tunables->prev_timer_rate;
+	else if (!display_on
+		&& tunables->timer_rate != SCREEN_OFF_TIMER_RATE) {
+		tunables->prev_timer_rate = tunables->timer_rate;
+		tunables->timer_rate
+			= max(tunables->timer_rate,
+				SCREEN_OFF_TIMER_RATE);
+	}
+
 	if (tunables->use_sched_load) {
 		/*
 		 * Unlock early to avoid deadlock.
@@ -1023,14 +1039,17 @@ static ssize_t store_timer_rate(struct cpufreq_interactive_tunables *tunables,
 		pr_warn("timer_rate not aligned to jiffy. Rounded up to %lu\n",
 			val_round);
 	tunables->timer_rate = val_round;
+	tunables->prev_timer_rate = val_round;
 
 	if (!tunables->use_sched_load)
 		return count;
 
 	for_each_possible_cpu(cpu) {
 		t = per_cpu(cpuinfo, cpu).cached_tunables;
-		if (t && t->use_sched_load)
+		if (t && t->use_sched_load) {
 			t->timer_rate = val_round;
+			t->prev_timer_rate = val_round;
+		}
 	}
 	set_window_helper(tunables);
 
@@ -1488,6 +1507,7 @@ static struct cpufreq_interactive_tunables *alloc_tunable(
 	tunables->ntarget_loads = ARRAY_SIZE(default_target_loads);
 	tunables->min_sample_time = DEFAULT_MIN_SAMPLE_TIME;
 	tunables->timer_rate = DEFAULT_TIMER_RATE;
+	tunables->prev_timer_rate = DEFAULT_TIMER_RATE;
 	tunables->boostpulse_duration_val = DEFAULT_MIN_SAMPLE_TIME;
 	tunables->timer_slack_val = DEFAULT_TIMER_SLACK;
 
