@@ -118,9 +118,7 @@ maple_expired_request(struct maple_data *mdata, int sync, int data_dir)
 static struct request *
 maple_choose_expired_request(struct maple_data *mdata)
 {
-	/* Reset (non-expired-)batch-counter */
-	mdata->batched = 0;
-
+	
 	struct request *rq_sync_read = maple_expired_request(mdata, SYNC, READ);
 	struct request *rq_sync_write = maple_expired_request(mdata, SYNC, WRITE);
 	struct request *rq_async_read = maple_expired_request(mdata, ASYNC, READ);
@@ -156,9 +154,6 @@ maple_choose_expired_request(struct maple_data *mdata)
 static struct request *
 maple_choose_request(struct maple_data *mdata, int data_dir)
 {
-	/* Increase (non-expired-)batch-counter */
-	mdata->batched++;
-
 	struct list_head *sync = mdata->fifo_list[SYNC];
 	struct list_head *async = mdata->fifo_list[ASYNC];
 
@@ -211,8 +206,13 @@ maple_dispatch_requests(struct request_queue *q, int force)
 	 * Retrieve any expired request after a batch of
 	 * sequential requests.
 	 */
-	if (mdata->batched >= mdata->fifo_batch)
+	if (mdata->batched >= mdata->fifo_batch) {
+    
+        /* Reset (non-expired-)batch-counter */
+	    mdata->batched = 0;
+
 		rq = maple_choose_expired_request(mdata);
+    }
 
 	/* Retrieve request */
 	if (!rq) {
@@ -221,6 +221,9 @@ maple_dispatch_requests(struct request_queue *q, int force)
 			data_dir = WRITE;
 		else if (!display_on && mdata->starved >= 1)
 			data_dir = WRITE;
+
+	    /* Increase (non-expired-)batch-counter */
+	    mdata->batched++;
 
 		rq = maple_choose_request(mdata, data_dir);
 		if (!rq)
